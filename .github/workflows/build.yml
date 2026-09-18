@@ -119,16 +119,6 @@ jobs:
           releaseDraft: true
           prerelease: false
 
-      - name: 留存构建产物
-        uses: actions/upload-artifact@v4
-        with:
-          name: 安装包-${{ matrix.label }}
-          if-no-files-found: warn
-          # 安装包已经在 Release 上，artifact 只用于排查，短保留期即可
-          # （GitHub 默认 90 天，会吃掉私有仓库的 500MB 存储配额）
-          retention-days: 7
-          path: |
-            target/release/bundle/dmg/*.dmg
-            target/release/bundle/nsis/*.exe
-            crates/desktop/target/release/bundle/dmg/*.dmg
-            crates/desktop/target/release/bundle/nsis/*.exe
+      # 不再额外留存构建产物：安装包已经作为 Release 资产存在，
+      # 再存一份 Actions artifact 会占私有仓库的存储配额（500MB），配额满了
+      # 会让这一步直接失败，把一次成功的构建标成红的。
