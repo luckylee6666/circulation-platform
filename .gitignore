@@ -1,0 +1,19 @@
+# 构建产物
+/target
+node_modules/
+dist/
+crates/desktop/gen/
+
+# 本地数据与备份
+/data
+/backups
+.env
+.env.local
+
+# 系统与编辑器
+.DS_Store
+*.log
+
+# 个人知识库与 agent 偏好，不进仓库
+.memory
+.commandcode/

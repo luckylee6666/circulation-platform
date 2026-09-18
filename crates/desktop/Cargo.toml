@@ -1,0 +1,29 @@
+[package]
+name = "circulation-desktop"
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+description = "流转平台桌面端：内嵌服务 + 控制台 + 托盘"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+anyhow = "1.0.104"
+axum = "0.8.9"
+chrono = "0.4.45"
+circulation-server = { path = "../server" }
+if-addrs = "0.15.0"
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.151"
+tauri = { version = "2.11.5", features = ["tray-icon"] }
+tauri-plugin-autostart = "2.5.1"
+tauri-plugin-clipboard-manager = "2.3.3"
+tauri-plugin-opener = "2.5.5"
+tauri-plugin-single-instance = "2.4.4"
+tokio = { version = "1.53.1", features = ["rt-multi-thread", "sync", "net", "time"] }
+tracing = "0.1.44"
+tracing-appender = "0.2.5"
+
+[dev-dependencies]
+tempfile = "3.27.0"

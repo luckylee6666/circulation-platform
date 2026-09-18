@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "console",
+  "description": "桌面控制台窗口：剪贴板、打开链接等能力都由 Rust 侧命令提供，这里只需要核心权限",
+  "windows": ["console"],
+  "permissions": ["core:default"]
+}

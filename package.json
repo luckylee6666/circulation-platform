@@ -1,0 +1,22 @@
+{
+  "name": "circulation-platform",
+  "version": "0.1.0",
+  "private": true,
+  "description": "流转平台：局域网内网流转与协同系统",
+  "workspaces": [
+    "apps/web"
+  ],
+  "scripts": {
+    "icon": "node scripts/make-icon.mjs",
+    "server": "cargo run -p circulation-server",
+    "dev:web": "npm -w @circulation/web run dev",
+    "build:web": "npm -w @circulation/web run build",
+    "typecheck:web": "npm -w @circulation/web run typecheck",
+    "test": "cargo test --workspace",
+    "desktop:dev": "npm run build:web && npm run tauri -- dev",
+    "desktop:build": "npm run build:web && npm run tauri -- build"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.11.4"
+  }
+}
