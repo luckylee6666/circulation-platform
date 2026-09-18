@@ -48,11 +48,8 @@ npm run desktop:dev               # 完整桌面端
 cargo test --workspace       # 120 个测试：权限、导入、流转、备份、API 集成
 cargo clippy --workspace --all-targets
 npm run typecheck:web        # 前端类型检查
-node scripts/ui-shot.mjs     # 无头浏览器跑一遍真实流程并逐页截图（需先启动服务）
 ```
 
-`scripts/ui-shot.mjs` 会登录、走完强制改密、创建字段定义、把一批数据从粘贴到导入跑完，
-逐页截图到 `/tmp/ui-shots`，并汇总浏览器控制台报错。改动界面后跑一次，比肉眼看代码可靠。
 
 ## 打包 Windows 安装包
 
