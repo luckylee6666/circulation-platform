@@ -16,6 +16,7 @@ circulation-server = { path = "../server" }
 if-addrs = "0.15.0"
 serde = { version = "1.0.229", features = ["derive"] }
 serde_json = "1.0.151"
+sysinfo = "0.39.6"
 tauri = { version = "2.11.5", features = ["tray-icon"] }
 tauri-plugin-autostart = "2.5.1"
 tauri-plugin-clipboard-manager = "2.3.3"

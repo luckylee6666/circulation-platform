@@ -55,8 +55,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       await authApi.logout();
     } finally {
-      queryClient.clear();
+      // 必须先 setQueryData 再清理其他缓存：clear() 会把 me 这个查询连同观察者一起移除，
+      // 之后再写入就不会触发重渲染，界面会一直停在退出前的状态。
       queryClient.setQueryData(ME_KEY, null);
+      queryClient.removeQueries({
+        predicate: (query) => query.queryKey[0] !== ME_KEY[0],
+      });
     }
   }, [queryClient]);
 

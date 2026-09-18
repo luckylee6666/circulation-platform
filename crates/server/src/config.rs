@@ -89,9 +89,10 @@ pub fn init_tracing(config: &Config) -> anyhow::Result<tracing_appender::non_blo
     let file_appender = tracing_appender::rolling::daily(config.log_dir(), "app.log");
     let (file_writer, guard) = tracing_appender::non_blocking(file_appender);
 
-    let filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| {
-        EnvFilter::new("info,circ=circulation_server=info,tower_http=warn,rustls=warn")
-    });
+    // 默认 info；HTTP 栈和 TLS 的日志太吵，单独压到 warn。
+    // 需要排查时用 RUST_LOG 覆盖即可。
+    let filter = EnvFilter::try_from_default_env()
+        .unwrap_or_else(|_| EnvFilter::new("info,tower_http=warn,rustls=warn,hyper=warn"));
 
     tracing_subscriber::registry()
         .with(filter)

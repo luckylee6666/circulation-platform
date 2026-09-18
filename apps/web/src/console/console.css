@@ -108,6 +108,11 @@ body {
   border-top: 1px solid #f0f0f0;
 }
 
+/* 数据目录是个长路径，允许在任意位置折行，别把整行撑破 */
+.status-dir {
+  word-break: break-all;
+}
+
 /* ---------- 访问地址 ---------- */
 
 .address-body {
@@ -184,4 +189,56 @@ body {
   display: block;
   width: 1px;
   height: 1px;
+}
+
+/* ---------- 服务负载 ---------- */
+
+.load-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 20px;
+}
+
+.load-value {
+  font-size: 22px;
+  font-weight: 600;
+  line-height: 1.4;
+  color: #1f2430;
+}
+
+.load-note {
+  font-size: 12px;
+}
+
+.load-trend {
+  margin-top: 22px;
+  padding-top: 16px;
+  border-top: 1px solid #f0f0f0;
+}
+
+.load-spark-wrap {
+  margin-top: 10px;
+}
+
+.load-spark {
+  width: 100%;
+  height: 64px;
+  display: block;
+}
+
+.load-spark-axis {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 4px;
+  font-size: 12px;
+}
+
+.load-spark-empty {
+  margin-top: 10px;
+  height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #fafbfc;
+  border-radius: 6px;
 }

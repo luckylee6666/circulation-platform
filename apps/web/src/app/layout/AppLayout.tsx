@@ -8,6 +8,7 @@ import ChangePasswordModal from '@/app/layout/ChangePasswordModal';
 import NotificationBell from '@/app/layout/NotificationBell';
 import { findNavTrail, NAV_ITEMS, visibleNavItems, type NavItem } from '@/app/navigation';
 import { useAuth } from '@/shared/auth/AuthProvider';
+import { useSiteName } from '@/shared/site/useSiteName';
 import { NotifyProvider } from '@/shared/notify/NotifyProvider';
 
 type MenuItems = NonNullable<MenuProps['items']>;
@@ -21,6 +22,7 @@ function toMenuItems(items: NavItem[]): MenuItems {
 }
 
 export default function AppLayout() {
+  const siteName = useSiteName();
   const { user, can, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
@@ -55,7 +57,7 @@ export default function AppLayout() {
         >
           <div className="app-brand">
             <span className="app-brand-mark" />
-            {collapsed ? null : <span className="app-brand-text">流转平台</span>}
+            {collapsed ? null : <span className="app-brand-text">{siteName}</span>}
           </div>
           <Menu
             className="app-menu"

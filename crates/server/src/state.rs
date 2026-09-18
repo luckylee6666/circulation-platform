@@ -1,4 +1,6 @@
-use std::sync::Arc;
+use std::collections::HashMap;
+use std::sync::{Arc, Mutex};
+use std::time::{Duration, Instant};
 
 use tokio::sync::broadcast;
 
@@ -18,11 +20,39 @@ pub struct ChangeSignal {
     pub at: String,
 }
 
+/// 记录每个用户最近一次发请求的时间。
+///
+/// 会话表只能说明「登录过」，判断不出「人还在不在」——一个关了浏览器的人，
+/// 会话在过期前一直算有效。所以在线人数看的是最近几分钟有没有真的发过请求。
+#[derive(Default)]
+pub struct ActivityTracker {
+    hits: Mutex<HashMap<i64, Instant>>,
+}
+
+impl ActivityTracker {
+    pub fn touch(&self, user_id: i64) {
+        if let Ok(mut hits) = self.hits.lock() {
+            hits.insert(user_id, Instant::now());
+        }
+    }
+
+    pub fn online_users(&self, window: Duration) -> usize {
+        let Ok(hits) = self.hits.lock() else {
+            return 0;
+        };
+        let now = Instant::now();
+        hits.values()
+            .filter(|at| now.duration_since(**at) < window)
+            .count()
+    }
+}
+
 #[derive(Clone)]
 pub struct AppState {
     pub config: Arc<Config>,
     pub pool: Pool,
     pub imports: Arc<ImportStore>,
+    pub activity: Arc<ActivityTracker>,
     events: broadcast::Sender<ChangeSignal>,
 }
 
@@ -33,6 +63,7 @@ impl AppState {
             config: Arc::new(config),
             pool,
             imports: Arc::new(ImportStore::default()),
+            activity: Arc::new(ActivityTracker::default()),
             events,
         }
     }

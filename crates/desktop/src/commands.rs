@@ -1,6 +1,10 @@
 use std::path::Path;
 use std::sync::atomic::Ordering;
 
+use circulation_server::auth::session;
+use circulation_server::db;
+use circulation_server::domain::setting;
+use circulation_server::error::AppResult;
 use serde::Serialize;
 use tauri::{AppHandle, State};
 
@@ -21,9 +25,51 @@ pub struct AppInfo {
     pub settings_file: String,
 }
 
+/// 服务在跑就用它的连接池，停着就临时开一个——
+/// 平台名称是本地配置，不该依赖服务是否运行。
+async fn run_with_pool<T, F>(state: &AppContext, f: F) -> Result<T, String>
+where
+    F: FnOnce(&mut db::PooledConn) -> AppResult<T> + Send + 'static,
+    T: Send + 'static,
+{
+    let pool = match state.service.pool() {
+        Some(pool) => pool,
+        None => state.open_pool()?,
+    };
+    db::run(pool, f).await.map_err(|err| err.to_string())
+}
+
 #[tauri::command]
-pub fn service_status(state: State<'_, AppContext>) -> ServiceStatus {
-    state.service.status(&state.data_dir())
+pub async fn get_site_name(state: State<'_, AppContext>) -> Result<String, String> {
+    let branding = run_with_pool(&state, |conn| setting::branding(conn)).await?;
+    Ok(branding.name)
+}
+
+#[tauri::command]
+pub async fn save_site_name(state: State<'_, AppContext>, name: String) -> Result<String, String> {
+    let name = setting::normalize_site_name(&name).map_err(|err| err.to_string())?;
+    let saved = name.clone();
+    run_with_pool(&state, move |conn| {
+        setting::set(conn, setting::KEY_SITE_NAME, &saved)?;
+        Ok(())
+    })
+    .await?;
+    Ok(name)
+}
+
+#[tauri::command]
+pub async fn service_status(state: State<'_, AppContext>) -> Result<ServiceStatus, String> {
+    let mut status = state.service.status(&state.data_dir());
+
+    // 有效会话数只有库里有；这个接口 2 秒轮询一次，计数走索引，开销可以忽略
+    if status.running
+        && let Some(pool) = state.service.pool()
+        && let Ok(count) = db::run(pool, |conn| session::active_count(conn)).await
+    {
+        status.online_sessions = count;
+    }
+
+    Ok(status)
 }
 
 #[tauri::command]

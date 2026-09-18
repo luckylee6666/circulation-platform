@@ -22,6 +22,24 @@ pub fn lan_addresses(port: u16) -> Vec<NetworkAddress> {
 /// 通过一次不产生流量的 UDP connect 让系统选出默认路由对应的本机地址。
 /// 内网无法访问外网时，用常见的网关地址作为兜底探测目标。
 pub fn primary_local_ip() -> Option<Ipv4Addr> {
+    // 默认路由选出来的地址最可能是对的。但如果它落在组网工具的 CGNAT 网段上，
+    // 办公网里的同事是访问不到的，这时退而选择真正的私有网段地址。
+    let probed = probe_default_route();
+    if let Some(ip) = probed
+        && !is_cgnat(ip)
+    {
+        return Some(ip);
+    }
+
+    let private = enumerate_ipv4()
+        .into_iter()
+        .map(|(_, ip)| ip)
+        .find(Ipv4Addr::is_private);
+
+    private.or(probed)
+}
+
+fn probe_default_route() -> Option<Ipv4Addr> {
     const PROBES: [&str; 4] = ["8.8.8.8:80", "114.114.114.114:80", "192.168.1.1:80", "10.0.0.1:80"];
 
     for probe in PROBES {
@@ -55,16 +73,36 @@ fn enumerate_ipv4() -> Vec<(String, Ipv4Addr)> {
         .collect()
 }
 
-/// 排除回环、未指定、链路本地（169.254.x.x）等局域网内不可互访的地址。
+/// 排除局域网内不可互访的地址。
 fn is_usable(ip: Ipv4Addr) -> bool {
     !ip.is_loopback()
         && !ip.is_unspecified()
         && !ip.is_broadcast()
         && !ip.is_link_local()
         && !ip.is_multicast()
+        && !ip.is_documentation()
+        && !is_proxy_fake_ip(ip)
 }
 
-/// 主地址优先，其次内网地址，最后其它地址；同档次按接口名排序保证输出稳定。
+/// 198.18.0.0/15 是 RFC 2544 的基准测试网段，常被代理软件占用来做 fake-IP。
+///
+/// 它长得像普通地址，但只有本机的代理能「到达」——浏览器走代理请求它会拿到 502，
+/// 同事那边更是完全不通。列在访问地址里只会让人复制错。
+fn is_proxy_fake_ip(ip: Ipv4Addr) -> bool {
+    let octets = ip.octets();
+    octets[0] == 198 && (octets[1] == 18 || octets[1] == 19)
+}
+
+/// 100.64.0.0/10 是运营商级 NAT 网段，Tailscale 之类的组网工具在用。
+///
+/// 地址本身是通的，但办公网里的同事通常访问不到，所以排在最后。
+fn is_cgnat(ip: Ipv4Addr) -> bool {
+    let octets = ip.octets();
+    octets[0] == 100 && (64..=127).contains(&octets[1])
+}
+
+/// 主地址优先，其次内网地址，再次公网地址，组网工具地址最后；
+/// 同档次按接口名排序，保证每次输出稳定。
 fn rank_addresses(
     mut candidates: Vec<(String, Ipv4Addr)>,
     primary: Option<Ipv4Addr>,
@@ -76,6 +114,8 @@ fn rank_addresses(
                 0
             } else if ip.is_private() {
                 1
+            } else if is_cgnat(*ip) {
+                3
             } else {
                 2
             }
@@ -111,6 +151,40 @@ mod tests {
         assert!(is_usable(ip("192.168.1.88")));
         assert!(is_usable(ip("10.0.0.5")));
         assert!(is_usable(ip("172.16.3.4")));
+    }
+
+    #[test]
+    fn proxy_fake_ip_range_is_excluded() {
+        // 198.18.0.0/15 被代理软件当 fake-IP 用，只有本机代理能"到达"，
+        // 出现在访问地址里会让人复制到一个打不开的地址
+        assert!(!is_usable(ip("198.18.0.1")));
+        assert!(!is_usable(ip("198.19.255.254")));
+        assert!(is_proxy_fake_ip(ip("198.18.0.1")));
+        assert!(is_proxy_fake_ip(ip("198.19.0.1")));
+        assert!(!is_proxy_fake_ip(ip("198.20.0.1")));
+        assert!(!is_proxy_fake_ip(ip("192.168.1.1")));
+    }
+
+    #[test]
+    fn cgnat_is_recognised_and_ranked_last() {
+        assert!(is_cgnat(ip("100.64.0.1")));
+        assert!(is_cgnat(ip("100.88.64.76")));
+        assert!(is_cgnat(ip("100.127.255.254")));
+        assert!(!is_cgnat(ip("100.128.0.1")));
+        assert!(!is_cgnat(ip("100.63.255.254")));
+        assert!(!is_cgnat(ip("192.168.1.1")));
+
+        // 组网工具地址排在公网地址之后，避免被当成首选复制出去
+        let candidates = vec![
+            ("utun0".to_string(), ip("100.88.64.76")),
+            ("en0".to_string(), ip("172.20.23.2")),
+            ("utun6".to_string(), ip("198.18.0.1")),
+        ];
+        let ranked = rank_addresses(candidates, Some(ip("172.20.23.2")), 8080);
+
+        assert_eq!(ranked[0].ip, "172.20.23.2");
+        assert!(ranked[0].is_primary);
+        assert_eq!(ranked.last().unwrap().ip, "100.88.64.76");
     }
 
     #[test]

@@ -37,7 +37,7 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
     signal: options.signal,
   });
 
-  return handleResponse<T>(response);
+  return handleResponse<T>(path, response);
 }
 
 /** 不走 JSON 序列化的请求（文件上传用 multipart）。 */
@@ -47,13 +47,15 @@ export async function requestRaw<T>(path: string, body: BodyInit): Promise<T> {
     credentials: 'same-origin',
     body,
   });
-  return handleResponse<T>(response);
+  return handleResponse<T>(path, response);
 }
 
-async function handleResponse<T>(response: Response): Promise<T> {
-  if (response.status === 401) {
+async function handleResponse<T>(path: string, response: Response): Promise<T> {
+  // 401 说明会话失效，通知上层跳回登录页。
+  // 但登录接口自己的 401 是「账号或密码不对」，不该当成会话过期，
+  // 也不该覆盖掉服务端给的具体原因。
+  if (response.status === 401 && !path.startsWith('/auth/login')) {
     unauthorizedHandler?.();
-    throw new ApiError('unauthorized', '登录状态已失效，请重新登录', 401);
   }
 
   const raw = await response.text();

@@ -88,6 +88,11 @@ export default function InstanceDetailPage() {
   const myTask = data.myPendingTaskId;
   const stepType = data.currentStepType;
 
+  // 当前环节还在等谁处理，用来告诉旁观的人该去找谁
+  const pendingNames = (data.tasks ?? [])
+    .filter((task) => task.stepKey === data.currentStepKey && task.status === 0)
+    .map((task) => task.assigneeName);
+
   const taskColumns: TableColumnsType<FlowTask> = [
     {
       title: '环节',
@@ -196,7 +201,15 @@ export default function InstanceDetailPage() {
                   ) : null}
                 </>
               ) : (
-                <Text type="secondary">当前环节由其他人处理，你暂时不需要操作</Text>
+                <Text type="secondary">
+                  {/*
+                    要点名当前环节卡在谁手上。只说「由其他人处理」的话，
+                    发起人只能干看着，不知道该去找谁催。
+                  */}
+                  {pendingNames.length > 0
+                    ? `当前环节由 ${pendingNames.join('、')} 处理中，你暂时不需要操作`
+                    : '当前环节由其他人处理，你暂时不需要操作'}
+                </Text>
               )}
 
               {can('flow:terminate') ? (

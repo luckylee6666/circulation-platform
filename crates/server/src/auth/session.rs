@@ -75,6 +75,19 @@ pub fn purge_expired(conn: &Connection) -> AppResult<usize> {
     Ok(removed)
 }
 
+/// 还没吊销、还没过期的会话数。
+///
+/// 注意这只代表「登录凭证还有效」，不代表人还坐在电脑前——
+/// 在线人数请看 `ActivityTracker`。
+pub fn active_count(conn: &Connection) -> AppResult<i64> {
+    let count = conn.query_row(
+        "SELECT COUNT(*) FROM sessions WHERE revoked_at IS NULL AND expires_at > ?1",
+        params![now_str()],
+        |row| row.get(0),
+    )?;
+    Ok(count)
+}
+
 fn truncate(value: &str, max: usize) -> String {
     if value.chars().count() <= max {
         return value.to_string();

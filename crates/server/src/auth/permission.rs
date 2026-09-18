@@ -54,9 +54,14 @@ impl FromRequestParts<AppState> for CurrentUser {
             .ok_or_else(|| AppError::unauthorized("请先登录"))?;
 
         let pool = state.pool.clone();
-        db::run(pool, move |conn| load(conn, &token))
-            .await?
-            .ok_or_else(|| AppError::unauthorized("登录状态已失效，请重新登录"))
+        let current = db::run(pool, move |conn| load(conn, &token)).await?;
+
+        // 记一次活跃，控制台的「在线用户」靠这个统计
+        if let Some(user) = &current {
+            state.activity.touch(user.id);
+        }
+
+        current.ok_or_else(|| AppError::unauthorized("登录状态已失效，请重新登录"))
     }
 }
 

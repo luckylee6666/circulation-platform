@@ -44,7 +44,9 @@ export default function SettingsCard({ settings, serviceRunning, saving, onSave 
               checked={draft.autostart}
               onChange={(checked) => setDraft({ ...draft, autostart: checked })}
             />
-            <Typography.Text type="secondary">随 Windows 启动，适合把本机长期当服务器用</Typography.Text>
+            <Typography.Text type="secondary">
+              随系统启动，适合把本机长期当服务器用
+            </Typography.Text>
           </Space>
         </Form.Item>
 

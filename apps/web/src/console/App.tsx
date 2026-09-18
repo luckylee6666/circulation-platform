@@ -4,6 +4,8 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { api } from './api';
 import AddressCard from './components/AddressCard';
+import BrandingCard from './components/BrandingCard';
+import LoadCard from './components/LoadCard';
 import LogDrawer from './components/LogDrawer';
 import MaintenanceCard from './components/MaintenanceCard';
 import SettingsCard from './components/SettingsCard';
@@ -180,12 +182,16 @@ export default function ConsoleApp() {
             />
           ) : null}
 
+          {status.data ? <LoadCard status={status.data} /> : null}
+
           <AddressCard
             addresses={addresses.data ?? []}
             primaryUrl={primaryUrl}
             onCopy={copy}
             onOpenBrowser={(url) => api.openUrl(url)}
           />
+
+          <BrandingCard />
 
           {settings.data ? (
             <SettingsCard

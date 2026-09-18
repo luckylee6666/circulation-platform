@@ -194,3 +194,8 @@ export const notificationsApi = {
   clear: () =>
     request<{ ok: boolean; affected: number }>('/notifications', { method: 'DELETE' }),
 };
+
+export const siteApi = {
+  read: () => request<{ name: string }>('/site'),
+  update: (name: string) => request<{ name: string }>('/site', { method: 'PUT', body: { name } }),
+};

@@ -5,6 +5,7 @@ import { Navigate, useLocation, useNavigate } from 'react-router-dom';
 
 import { describeError } from '@/shared/api/client';
 import { useAuth } from '@/shared/auth/AuthProvider';
+import { useSiteName } from '@/shared/site/useSiteName';
 import { FullPageSpin } from '@/shared/auth/RequireAuth';
 
 interface FormValues {
@@ -13,6 +14,7 @@ interface FormValues {
 }
 
 export default function LoginPage() {
+  const siteName = useSiteName();
   const { user, loading, login } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
@@ -48,7 +50,7 @@ export default function LoginPage() {
         <div className="login-brand">
           <span className="login-mark" />
           <Typography.Title level={3} className="login-title">
-            流转平台
+            {siteName}
           </Typography.Title>
           <Typography.Text type="secondary">请使用管理员分配的账号登录</Typography.Text>
         </div>

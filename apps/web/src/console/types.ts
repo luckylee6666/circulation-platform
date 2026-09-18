@@ -1,5 +1,10 @@
 /** 与 Rust 侧 `#[serde(rename_all = "camelCase")]` 结构一一对应。 */
 
+export interface LoadPoint {
+  at: string;
+  memoryBytes: number;
+}
+
 export interface ServiceStatus {
   running: boolean;
   port: number;
@@ -8,6 +13,11 @@ export interface ServiceStatus {
   dataDir: string;
   databaseSize: number;
   lastError: string | null;
+  memoryBytes: number;
+  cpuPercent: number;
+  onlineUsers: number;
+  onlineSessions: number;
+  loadHistory: LoadPoint[];
 }
 
 export interface NetworkAddress {

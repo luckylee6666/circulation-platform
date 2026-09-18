@@ -1,5 +1,6 @@
 pub mod backup;
 pub mod commands;
+pub mod load;
 pub mod context;
 pub mod net;
 pub mod service;
@@ -30,6 +31,8 @@ pub fn run() {
         ))
         .invoke_handler(tauri::generate_handler![
             commands::service_status,
+            commands::get_site_name,
+            commands::save_site_name,
             commands::service_start,
             commands::service_stop,
             commands::access_addresses,

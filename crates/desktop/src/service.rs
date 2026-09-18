@@ -4,8 +4,14 @@ use std::sync::Mutex;
 
 use circulation_server::config::Config as ServerConfig;
 use circulation_server::db;
+use circulation_server::state::ActivityTracker;
 use circulation_server::{bootstrap, build_app};
 use serde::Serialize;
+
+use crate::load::{CurrentLoad, LoadPoint, LoadSampler};
+
+/// 多长时间内发过请求算「在线」
+const ONLINE_WINDOW: std::time::Duration = std::time::Duration::from_secs(5 * 60);
 
 #[derive(Debug, Clone, Default, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -17,10 +23,21 @@ pub struct ServiceStatus {
     pub data_dir: String,
     pub database_size: u64,
     pub last_error: Option<String>,
+    /// 服务进程当前占用的内存（字节）
+    pub memory_bytes: u64,
+    /// 服务进程 CPU 占用百分比
+    pub cpu_percent: f32,
+    /// 最近几分钟有实际操作的用户数
+    pub online_users: usize,
+    /// 还有效的登录凭证数（不代表人在电脑前）
+    pub online_sessions: i64,
+    /// 内存占用历史，用来观察长期运行有没有持续增长
+    pub load_history: Vec<LoadPoint>,
 }
 
 pub struct Service {
     inner: Mutex<Inner>,
+    load: Mutex<LoadSampler>,
 }
 
 #[derive(Default)]
@@ -35,6 +52,7 @@ struct Running {
     port: u16,
     started_at: chrono::DateTime<chrono::Local>,
     pool: db::Pool,
+    activity: std::sync::Arc<ActivityTracker>,
 }
 
 impl Service {
@@ -44,6 +62,7 @@ impl Service {
                 last_port: port,
                 ..Inner::default()
             }),
+            load: Mutex::new(LoadSampler::new()),
         }
     }
 
@@ -84,6 +103,7 @@ impl Service {
             .map_err(|err| format!("初始化数据失败：{err}"))?;
 
         let pool = state.pool.clone();
+        let activity = state.activity.clone();
         let app = build_app(state).map_err(|err| format!("构建服务失败：{err}"))?;
 
         let (shutdown, receiver) = tokio::sync::oneshot::channel::<()>();
@@ -111,6 +131,7 @@ impl Service {
                 port,
                 started_at: chrono::Local::now(),
                 pool,
+                activity,
             });
             inner.last_port = port;
             inner.last_error = None;
@@ -152,14 +173,31 @@ impl Service {
     }
 
     pub fn status(&self, data_dir: &Path) -> ServiceStatus {
+        // 负载先采，服务停着也能看到桌面端自身占了多少
+        let load = self.sample_load();
+        let history = self
+            .load
+            .lock()
+            .map(|sampler| sampler.history())
+            .unwrap_or_default();
+
         let Ok(inner) = self.inner.lock() else {
-            return ServiceStatus::default();
+            return ServiceStatus {
+                data_dir: data_dir.display().to_string(),
+                memory_bytes: load.memory_bytes,
+                cpu_percent: load.cpu_percent,
+                load_history: history,
+                ..ServiceStatus::default()
+            };
         };
 
         let base = ServiceStatus {
             data_dir: data_dir.display().to_string(),
             database_size: database_size(data_dir),
             last_error: inner.last_error.clone(),
+            memory_bytes: load.memory_bytes,
+            cpu_percent: load.cpu_percent,
+            load_history: history,
             ..ServiceStatus::default()
         };
 
@@ -169,6 +207,7 @@ impl Service {
                 port: running.port,
                 started_at: Some(running.started_at.format("%Y-%m-%d %H:%M:%S").to_string()),
                 uptime_seconds: (chrono::Local::now() - running.started_at).num_seconds().max(0),
+                online_users: running.activity.online_users(ONLINE_WINDOW),
                 ..base
             },
             None => ServiceStatus {
@@ -176,6 +215,13 @@ impl Service {
                 ..base
             },
         }
+    }
+
+    fn sample_load(&self) -> CurrentLoad {
+        self.load
+            .lock()
+            .map(|mut sampler| sampler.sample())
+            .unwrap_or_default()
     }
 
     fn lock(&self) -> Result<std::sync::MutexGuard<'_, Inner>, String> {

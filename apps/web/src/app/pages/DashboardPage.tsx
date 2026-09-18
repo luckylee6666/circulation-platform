@@ -3,8 +3,10 @@ import { useNavigate } from 'react-router-dom';
 
 import { NAV_ITEMS, visibleNavItems } from '@/app/navigation';
 import { useAuth } from '@/shared/auth/AuthProvider';
+import { useSiteName } from '@/shared/site/useSiteName';
 
 export default function DashboardPage() {
+  const siteName = useSiteName();
   const { user, roles, can } = useAuth();
   const navigate = useNavigate();
 
@@ -19,7 +21,7 @@ export default function DashboardPage() {
           你好，{user?.displayName}
         </Typography.Title>
         <Typography.Paragraph type="secondary" className="dashboard-sub">
-          欢迎使用流转平台。左侧菜单会按你的权限显示，没有权限的功能不会出现。
+          欢迎使用{siteName}。左侧菜单会按你的权限显示，没有权限的功能不会出现。
         </Typography.Paragraph>
 
         <Descriptions

@@ -1,4 +1,4 @@
-import type { AppInfo, BackupFile, NetworkAddress, ServiceStatus, Settings } from './types';
+import type { AppInfo, BackupFile, NetworkAddress, ServiceStatus, Settings, LoadPoint } from './types';
 
 /**
  * 控制台与 Rust 侧的桥。
@@ -18,8 +18,21 @@ async function call<T>(command: string, args?: Record<string, unknown>): Promise
 
 const mockStartedAt = new Date(Date.now() - 193 * 60 * 1000);
 
+/** 预览用的内存趋势。时间必须走真实进位，否则会算出 32:30 这种不存在的钟点。 */
+function mockLoadHistory(points = 40): LoadPoint[] {
+  const base = new Date(2026, 0, 1, 12, 0, 0);
+  return Array.from({ length: points }, (_, index) => {
+    const at = new Date(base.getTime() + index * 30 * 60 * 1000);
+    return {
+      at: `${String(at.getHours()).padStart(2, '0')}:${String(at.getMinutes()).padStart(2, '0')}`,
+      memoryBytes: 48_000_000 + Math.round(Math.sin(index / 5) * 3_000_000) + index * 120_000,
+    };
+  });
+}
+
 const mockState = {
   running: true,
+  siteName: '流转平台',
   port: 8080,
   // 与 Rust 侧一致：本地时间 'YYYY-MM-DD HH:MM:SS'
   startedAt: formatLocalDateTime(mockStartedAt),
@@ -53,7 +66,22 @@ async function mock<T>(command: string, args?: Record<string, unknown>): Promise
         dataDir: '/Users/you/Library/Application Support/com.byteflux.circulation',
         databaseSize: 13_021_184,
         lastError: null,
+        memoryBytes: 52_428_800,
+        cpuPercent: 1.2,
+        onlineUsers: mockState.running ? 2 : 0,
+        onlineSessions: mockState.running ? 5 : 0,
+        loadHistory: mockState.running ? mockLoadHistory() : [],
       } satisfies ServiceStatus as T;
+
+    case 'get_site_name':
+      return (mockState.siteName ?? '流转平台') as T;
+
+    case 'save_site_name': {
+      const next = String((args as { name?: string } | undefined)?.name ?? '').trim();
+      if (!next) throw new Error('平台名称不能为空');
+      mockState.siteName = next;
+      return next as T;
+    }
 
     case 'service_start':
       mockState.running = true;
@@ -117,6 +145,8 @@ async function mock<T>(command: string, args?: Record<string, unknown>): Promise
 }
 
 export const api = {
+  getSiteName: () => call<string>('get_site_name'),
+  saveSiteName: (name: string) => call<string>('save_site_name', { name }),
   isDesktop: inTauri,
 
   serviceStatus: () => call<ServiceStatus>('service_status'),

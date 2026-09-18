@@ -4,6 +4,8 @@ import { Alert, Button, Card, Descriptions, Space, Tag, Typography } from 'antd'
 import { formatBytes, formatUptime } from '../format';
 import type { ServiceStatus } from '../types';
 
+const { Text } = Typography;
+
 interface Props {
   status: ServiceStatus;
   primaryUrl: string | null;
@@ -71,15 +73,45 @@ export default function StatusCard({
         <Alert type="error" showIcon className="status-alert" title={status.lastError} />
       ) : null}
 
+      {/*
+        数据目录是个很长的路径，和另外三项挤在同一行时会把整排都撑到换行，
+        「20 秒」「228.0 KB」这种简短的值也会被从中间断开。所以拆成两行：
+        前三个短字段一行，路径单独占满一行。
+      */}
       <Descriptions
         className="status-meta"
         size="small"
-        column={{ xs: 1, sm: 2, md: 4 }}
+        column={1}
         items={[
-          { key: 'uptime', label: '运行时长', children: running ? formatUptime(status.uptimeSeconds) : '—' },
-          { key: 'started', label: '启动时间', children: status.startedAt ?? '—' },
-          { key: 'size', label: '数据大小', children: formatBytes(status.databaseSize) },
-          { key: 'dir', label: '数据目录', children: status.dataDir || '—' },
+          {
+            key: 'brief',
+            label: '运行状态',
+            children: (
+              <Space size={24} wrap>
+                <span>
+                  <Text type="secondary">运行时长 </Text>
+                  {running ? formatUptime(status.uptimeSeconds) : '—'}
+                </span>
+                <span>
+                  <Text type="secondary">启动时间 </Text>
+                  {status.startedAt ?? '—'}
+                </span>
+                <span>
+                  <Text type="secondary">数据大小 </Text>
+                  {formatBytes(status.databaseSize)}
+                </span>
+              </Space>
+            ),
+          },
+          {
+            key: 'dir',
+            label: '数据目录',
+            children: (
+              <Text className="status-dir" copyable={{ text: status.dataDir }}>
+                {status.dataDir || '—'}
+              </Text>
+            ),
+          },
         ]}
       />
     </Card>
