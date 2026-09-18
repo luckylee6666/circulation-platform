@@ -1,0 +1,131 @@
+name: 构建安装包
+
+on:
+  push:
+    tags:
+      - 'v*'
+  pull_request:
+  # 手动触发时请在右侧选择要构建的 tag，产物会挂到对应的 Release 上
+  workflow_dispatch:
+
+# tauri-action 需要写权限才能创建 Release
+permissions:
+  contents: write
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  checks:
+    name: 测试与检查
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # 桌面端 crate 依赖 tauri，在 Linux 上编译需要这些系统库
+      - name: 安装系统依赖
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libwebkit2gtk-4.1-dev \
+            libgtk-3-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            build-essential \
+            libssl-dev
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+
+      - uses: Swatinem/rust-cache@v2
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      # 先出前端产物：桌面端的构建脚本会去找 apps/web/dist
+      - name: 前端类型检查与构建
+        run: npm run build:web
+
+      - name: Clippy
+        run: cargo clippy --workspace --all-targets -- -D warnings
+
+      - name: 测试
+        run: cargo test --workspace
+
+  bundle:
+    name: 打包 ${{ matrix.label }}
+    needs: checks
+    # 只在打 tag 时出安装包；PR 上只跑检查
+    if: startsWith(github.ref, 'refs/tags/v')
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: macos-latest
+            label: macOS
+            bundles: dmg
+          - platform: windows-latest
+            label: Windows
+            bundles: nsis
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+
+      - run: npm ci
+
+      - name: 构建前端
+        run: npm run build:web
+
+      - name: 打包
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          # tauri.conf.json 在 crates/desktop，不是默认的 src-tauri
+          projectPath: crates/desktop
+          tauriScript: npx tauri
+          args: --bundles ${{ matrix.bundles }}
+          tagName: ${{ github.ref_name }}
+          releaseName: ${{ github.ref_name }}
+          releaseBody: |
+            流转平台 ${{ github.ref_name }} 安装包。
+
+            - macOS：下载 `.dmg`，打开后把应用拖进「应用程序」
+            - Windows：下载 `.exe` 安装包，双击安装
+
+            未做代码签名，首次打开系统会拦一下：
+            - macOS：右键点应用选「打开」，或执行
+              `xattr -dr com.apple.quarantine "/Applications/流转平台.app"`
+            - Windows：SmartScreen 提示时点「更多信息」→「仍要运行」
+          # 先出草稿，确认产物没问题再手动发布
+          releaseDraft: true
+          prerelease: false
+
+      - name: 留存构建产物
+        uses: actions/upload-artifact@v4
+        with:
+          name: 安装包-${{ matrix.label }}
+          if-no-files-found: warn
+          path: |
+            target/release/bundle/dmg/*.dmg
+            target/release/bundle/nsis/*.exe
+            crates/desktop/target/release/bundle/dmg/*.dmg
+            crates/desktop/target/release/bundle/nsis/*.exe
