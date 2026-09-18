@@ -137,6 +137,38 @@ npm install --include=dev
 - **个人统计不需要权限**，全局统计要 `stats:view`。内置角色默认都带这个权限
   （小团队里工作量透明是好事），但管理员可以通过改角色把它收掉。
 
+### 发布安装包
+
+`.github/workflows/build.yml` 会在**打 tag 时**自动构建两个平台的安装包：
+
+| 平台 | 产物 | 说明 |
+| --- | --- | --- |
+| Windows | `.exe`（NSIS 安装包） | 双击安装，可改安装目录，自动建桌面快捷方式 |
+| macOS | `.dmg` | 打开后拖进「应用程序」 |
+
+打 tag 触发构建：
+
+```bash
+git tag -a v0.1.0 -m "v0.1.0"
+git push origin v0.1.0
+```
+
+构建完成后会生成一个**草稿 Release**，产物挂在上面。确认无误后到 Releases 页面
+手动发布即可。PR 上只跑测试与 clippy，不打包。
+
+**为什么 Windows 包在 CI 上打而不是在 Mac 上交叉编译**：Tauri 官方支持
+`cargo-xwin` 从 macOS 交叉编译 Windows 产物，但文档明确说这是「本地虚拟机或 CI
+都不可用时才考虑」的下策，NSIS 打包在非 Windows 主机上容易出意外。CI 上的
+`windows-latest` 是原生环境，最省心。
+
+**安装包未做代码签名**，首次打开系统会拦一下：
+
+- Windows：SmartScreen 提示 → 「更多信息」→「仍要运行」
+- macOS：右键点应用选「打开」，或执行
+  `xattr -dr com.apple.quarantine "/Applications/流转平台.app"`
+
+内网自用可以直接这么放行；要消除提示需要买代码签名证书，Windows 和 macOS 各一份。
+
 ### 调试工具
 
 - `node scripts/ui-shot.mjs` 用无头浏览器把主要流程真跑一遍并逐页截图，
