@@ -124,6 +124,9 @@ jobs:
         with:
           name: 安装包-${{ matrix.label }}
           if-no-files-found: warn
+          # 安装包已经在 Release 上，artifact 只用于排查，短保留期即可
+          # （GitHub 默认 90 天，会吃掉私有仓库的 500MB 存储配额）
+          retention-days: 7
           path: |
             target/release/bundle/dmg/*.dmg
             target/release/bundle/nsis/*.exe
